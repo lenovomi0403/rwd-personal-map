@@ -1,8 +1,8 @@
-# 個人地圖管理工具｜G01-R25
+# 個人地圖管理工具｜G01-R26
 
 本版本使用 Leaflet + OpenStreetMap，並加入 Google Identity Services Token Model、Google Drive API 與 Google Sheets API 的正式初始化層。流程會以 `appProperties` 尋找或建立可見的專案資料夾、設定 JSON、primary database 與 `Locations` header；不使用 GAS 或 `appDataFolder`。
 
-G01-R25 延續 G01-R24 的地點資料讀取、寫入、編輯、實際列刪除、地址定位、地圖標記拖曳同步、搜尋、Fit All、重新連線，以及缺少資料庫時的明確 Recovery 操作；新增可重試的 Google API 暫時性錯誤處理、地圖點擊新增標題修正與對話框取消按鈕處理。同步把 HTML、ES Module import 與 CSS 的版本查詢字串升級至 G01-R25，確保新版修正不會被舊版快取遮蔽。既有版本資料夾與 Git 歷史保留不覆寫。
+G01-R26 延續 G01-R25 的地點資料讀取、寫入、編輯、實際列刪除、地址定位、地圖標記拖曳同步、搜尋、Fit All、重新連線，以及缺少資料庫時的明確 Recovery 操作；修正 Tablet／Mobile 版面在 block layout 下地圖容器高度塌陷為 0 的問題，確保小尺寸仍可顯示地圖。同步把 HTML、ES Module import 與 CSS 的版本查詢字串升級至 G01-R26，確保新版修正不會被舊版快取遮蔽。既有版本資料夾與 Git 歷史保留不覆寫。
 
 ## 本機預覽
 
@@ -18,7 +18,7 @@ G01-R25 延續 G01-R24 的地點資料讀取、寫入、編輯、實際列刪除
 
 ## 此版本的調整說明
 
-G01-R25 修正正式資產版本字串未隨 G01-R24 修正更新的問題；HTML、app.js、google-api.js、config.js、recovery-ui.js 與 styles.css 均使用 G01-R25 查詢字串。Google API 的 GET、PUT、PATCH 在 429、500、502、503、504 或網路暫時失敗時最多自動重試兩次，不對 POST 寫入盲目重試；並修正地圖點擊新增時錯顯示「編輯地點」及取消按鈕關閉行為。保留 G01-R24 與既有版本的 OAuth、timeout、CRUD、Recovery 與標記同步修正。
+G01-R26 修正正式資產版本字串未隨 G01-R25 修正更新的問題；並在 `@media(max-width:1023px)` 為 `.map-stage` 補上 `height:100%`，修復 Tablet／Mobile 六種 viewport 實測中地圖高度為 0 的問題。保留 G01-R25 的 Google API 暫時錯誤重試、地圖點擊新增標題與取消按鈕修正，以及既有版本的 OAuth、CRUD、Recovery 與標記同步修正。
 
 ## 歷史調整說明
 

@@ -1,4 +1,4 @@
-import {authorize,initializeProject,loadLocations,saveLocation,deleteLocation,hasToken} from "./google-api.js?v=G01-R25";
+import {authorize,initializeProject,loadLocations,saveLocation,deleteLocation,hasToken} from "./google-api.js?v=G01-R26";
 
 const locations=[];
 const markers=new Map();

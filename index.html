@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#173042"><title>個人地圖管理工具</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <link rel="stylesheet" href="src/styles.css?v=G01-R25">
+  <link rel="stylesheet" href="src/styles.css?v=G01-R26">
 </head>
 <body>
   <header class="topbar"><div><p class="eyebrow">PERSONAL MAP</p><h1>個人地圖管理工具</h1></div><button id="authButton" class="button button-primary">初始化我的地圖</button></header>
@@ -20,5 +20,5 @@
   <dialog id="locationDialog"><form method="dialog" id="locationForm"><div class="dialog-head"><div><p class="eyebrow">LOCATION</p><h2 id="dialogTitle">新增地點</h2></div><button value="cancel" class="icon-button" aria-label="關閉">×</button></div><p id="dialogHint" class="muted">點擊地圖選取座標，或直接輸入地址。</p><input type="hidden" id="locationId"><div class="form-grid"><label>名稱＊<input id="name" required></label><label>分類<input id="category"></label><label class="span-2">地址<input id="address"></label><label>緯度<input id="latitude" inputmode="decimal"></label><label>經度<input id="longitude" inputmode="decimal"></label><label class="span-2">說明<textarea id="description" rows="4"></textarea></label></div><p id="formError" class="form-error" aria-live="polite"></p><div class="dialog-actions"><button value="cancel" class="button button-quiet">取消</button><button id="saveButton" value="default" class="button button-primary">儲存地點</button></div></form></dialog>
   <script>window.__PERSONAL_MAP_CONFIG__={oauthClientId:"948538945626-fbr7tt6t1loepoi85bqru5o9pqu23qco.apps.googleusercontent.com"};</script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" src="src/app.js?v=G01-R25"></script><script type="module" src="src/recovery-ui.js?v=G01-R25"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script type="module" src="src/app.js?v=G01-R26"></script><script type="module" src="src/recovery-ui.js?v=G01-R26"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 </body></html>
