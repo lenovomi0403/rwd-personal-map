@@ -85,7 +85,6 @@ export async function authorize(){
     const finish=callback=>value=>{if(settled)return;settled=true;clearTimeout(timer);callback(value)};
     const succeed=finish(resolve);
     const fail=finish(reject);
-    let consentRequested=false;
     try{
       const client=google.accounts.oauth2.initTokenClient({
         client_id:APP_CONFIG.oauthClientId,
@@ -93,16 +92,11 @@ export async function authorize(){
         callback:response=>{
           if(settled)return;
           if(!response.error){accessToken=response.access_token;succeed(response);return;}
-          if(!consentRequested&&(response.error==="consent_required"||response.error==="login_required")){
-            consentRequested=true;
-            try{client.requestAccessToken({prompt:"consent"})}catch(error){fail(new Error(`AUTH_REQUEST_FAILED: ${error.message}`))}
-            return;
-          }
           const detail=response.error_description?` (${response.error_description})`:"";
           fail(new Error(`AUTH_DENIED: ${response.error}${detail}`));
         }
       });
-      client.requestAccessToken({prompt:"none"});
+      client.requestAccessToken({prompt:""});
     }catch(error){fail(new Error(`AUTH_REQUEST_FAILED: ${error.message}`))}
   });
 }
