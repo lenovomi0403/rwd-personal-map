@@ -13,3 +13,6 @@
 ## 測試
 
 `npm test` 執行 JavaScript 語法檢查。Google Drive/Sheets 初始化與 OAuth 需在具備 OAuth Client ID、Google 登入及正式部署網址後進行真人流程驗證。
+## 此版本的調整說明
+
+G01-R03 修正 Google Sheets 建立流程：改由 Sheets API 建立試算表，再透過 Drive API 移入「個人地圖管理工具」資料夾並寫入 appProperties，避免以 Drive multipart 直接建立 Google Sheets 造成 `GOOGLE_API_400`。
