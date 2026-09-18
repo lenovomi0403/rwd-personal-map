@@ -1,4 +1,4 @@
-import {APP_CONFIG} from "./config.js?v=G01-R22";
+import {APP_CONFIG} from "./config.js?v=G01-R24";
 
 const DRIVE="https://www.googleapis.com/drive/v3";
 const SHEETS="https://sheets.googleapis.com/v4";
