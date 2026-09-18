@@ -22,3 +22,6 @@ G01-R04 修正 Drive metadata-only 建立流程：資料夾與其他純 metadata
 ## 此版本的調整說明
 
 G01-R06 將 Google API 錯誤處理改為顯示 HTTP 狀態、Google 回應訊息與可辨識的失敗內容，避免只顯示籠統的 `GOOGLE_API_400`。
+## 此版本的調整說明
+
+G01-R07 修正 Google Drive `q` 查詢的 `appProperties has` 語法；R06 已取得實際回應 `GOOGLE_API_400: Parse Error`，本版依 Drive API 查詢格式移除條件運算子的多餘空白。
