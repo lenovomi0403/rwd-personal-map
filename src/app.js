@@ -1,4 +1,4 @@
-import {authorize,initializeProject,loadLocations,saveLocation,deleteLocation,hasToken} from "./google-api.js?v=G01-R24";
+import {authorize,initializeProject,loadLocations,saveLocation,deleteLocation,hasToken} from "./google-api.js?v=G01-R25";
 
 const locations=[];
 const markers=new Map();
@@ -51,7 +51,7 @@ async function moveMarker(location,marker){
 
 function openForm(location){
   editingId=location?.id||null;
-  $("dialogTitle").textContent=location?"編輯地點":"新增地點";
+  $("dialogTitle").textContent=editingId?"編輯地點":"新增地點";
   $("locationId").value=editingId||"";
   for(const [id,key] of [["name","name"],["address","address"],["description","description"],["category","category"],["latitude","latitude"],["longitude","longitude"]])$(id).value=location?.[key]??"";
   $("formError").textContent="";
@@ -170,4 +170,7 @@ deleteButton.textContent="刪除地點";
 deleteButton.hidden=true;
 deleteButton.onclick=removeCurrent;
 document.querySelector(".dialog-actions")?.prepend(deleteButton);
+document.querySelectorAll('#locationDialog button[value="cancel"]').forEach(button=>{
+  button.onclick=()=>$("locationDialog").close();
+});
 render();

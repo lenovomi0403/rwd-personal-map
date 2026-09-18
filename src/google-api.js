@@ -1,4 +1,4 @@
-import {APP_CONFIG} from "./config.js?v=G01-R24";
+import {APP_CONFIG} from "./config.js?v=G01-R25";
 
 const DRIVE="https://www.googleapis.com/drive/v3";
 const SHEETS="https://sheets.googleapis.com/v4";
@@ -8,6 +8,8 @@ const DB_PROPS={application:"personal-map",projectName:"個人地圖管理工具
 const LOCATION_HEADERS=["id","name","address","latitude","longitude","description","category","createdAt","updatedAt"];
 const REQUEST_TIMEOUT_MS=20000;
 const AUTH_TIMEOUT_MS=60000;
+const RETRYABLE_STATUS=new Set([429,500,502,503,504]);
+const delay=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 let accessToken="";
 let databaseId="";
 let locationsSheetId=null;
@@ -23,7 +25,21 @@ async function fetchWithTimeout(url,options={},timeoutMs=REQUEST_TIMEOUT_MS){
   }finally{clearTimeout(timeoutId)}
 }
 async function api(url,options={}){
-  const response=await fetchWithTimeout(url,{...options,headers:{...headers(),...(options.headers||{})}});
+  const method=(options.method||"GET").toUpperCase();
+  const canRetry=["GET","PUT","PATCH"].includes(method);
+  let response;
+  for(let attempt=0;attempt<3;attempt++){
+    try{
+      response=await fetchWithTimeout(url,{...options,headers:{...headers(),...(options.headers||{})}});
+    }catch(error){
+      if(!canRetry||attempt===2)throw error;
+      await delay(400*(attempt+1));
+      continue;
+    }
+    if(!canRetry||!RETRYABLE_STATUS.has(response.status)||attempt===2)break;
+    await response.text();
+    await delay(400*(attempt+1));
+  }
   if(response.status===401)throw new Error("AUTH_EXPIRED");
   if(!response.ok){
     const body=await response.text();
