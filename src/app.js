@@ -60,7 +60,12 @@ function openForm(location){
 }
 
 async function geocode(address){
-  const response=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=zh-TW&q=${encodeURIComponent(address)}`,{headers:{Accept:"application/json"}});
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),15000);
+  let response;
+  try{response=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=zh-TW&q=${encodeURIComponent(address)}`,{headers:{Accept:"application/json"},signal:controller.signal})}
+  catch(error){if(error.name==="AbortError")throw new Error("地址定位逾時");throw new Error(`地址定位失敗：${error.message}`)}
+  finally{clearTimeout(timer)}
   if(!response.ok)throw new Error("無法定位此地址");
   const rows=await response.json();
   if(!rows.length)throw new Error("無法定位此地址，請確認地址或直接輸入座標");
@@ -125,8 +130,8 @@ async function connect(options={}){
   button.textContent="連線中…";
   document.getElementById("recoveryPanel")?.remove();
   try{
-    if(!hasToken())await authorize();
-    await initializeProject(options);
+    if(!hasToken()){setStatus("正在等待 Google OAuth 回傳…");await authorize()}
+    await initializeProject({...options,onProgress:label=>setStatus(`${label}…`)});
     const loaded=await loadLocations();
     for(const marker of markers.values())marker.remove();
     markers.clear();

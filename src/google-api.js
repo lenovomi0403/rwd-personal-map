@@ -6,13 +6,24 @@ const FOLDER_PROPS={application:"personal-map",projectName:"個人地圖管理�
 const CONFIG_PROPS={application:"personal-map",projectName:"個人地圖管理工具",resourceRole:"binding-config",schemaVersion:"1"};
 const DB_PROPS={application:"personal-map",projectName:"個人地圖管理工具",resourceRole:"primary-database",schemaVersion:"1"};
 const LOCATION_HEADERS=["id","name","address","latitude","longitude","description","category","createdAt","updatedAt"];
+const REQUEST_TIMEOUT_MS=20000;
+const AUTH_TIMEOUT_MS=60000;
 let accessToken="";
 let databaseId="";
 let locationsSheetId=null;
 
 const headers=()=>({Authorization:`Bearer ${accessToken}`,"Content-Type":"application/json"});
+async function fetchWithTimeout(url,options={},timeoutMs=REQUEST_TIMEOUT_MS){
+  const controller=new AbortController();
+  const timeoutId=setTimeout(()=>controller.abort(),timeoutMs);
+  try{return await fetch(url,{...options,signal:controller.signal})}
+  catch(error){
+    if(error.name==="AbortError")throw new Error(`GOOGLE_API_TIMEOUT: ${timeoutMs}ms`);
+    throw new Error(`GOOGLE_NETWORK_ERROR: ${error.message}`);
+  }finally{clearTimeout(timeoutId)}
+}
 async function api(url,options={}){
-  const response=await fetch(url,{...options,headers:{...headers(),...(options.headers||{})}});
+  const response=await fetchWithTimeout(url,{...options,headers:{...headers(),...(options.headers||{})}});
   if(response.status===401)throw new Error("AUTH_EXPIRED");
   if(!response.ok){
     const body=await response.text();
@@ -20,7 +31,10 @@ async function api(url,options={}){
     try{const parsed=JSON.parse(body);detail=parsed.error?.message||body}catch{}
     throw new Error(`GOOGLE_API_${response.status}: ${detail.slice(0,240)}`);
   }
-  return response.status===204?null:response.json();
+  if(response.status===204)return null;
+  const text=await response.text();
+  if(!text.trim())return null;
+  try{return JSON.parse(text)}catch(error){throw new Error(`GOOGLE_RESPONSE_PARSE_ERROR: ${error.message}`)}
 }
 function q(value){return `'${String(value).replaceAll("'","\\'")}'`}
 function query(name,mime){return `name=${q(name)} and mimeType=${q(mime)} and trashed=false`}
@@ -61,26 +75,35 @@ export async function deleteLocation(id){
   await api(`${SHEETS}/spreadsheets/${databaseId}:batchUpdate`,{method:"POST",body:JSON.stringify({requests:[{deleteDimension:{range:{sheetId:locationsSheetId,dimension:"ROWS",startIndex:rowNumber-1,endIndex:rowNumber}}}]})});
 }
 
-async function step(label,fn){try{return await fn()}catch(error){throw new Error(`${label}：${error.message}`)}}
+async function step(label,fn,onProgress){onProgress?.(label);try{return await fn()}catch(error){throw new Error(`${label}：${error.message}`)}}
 export async function authorize(){
   if(!window.google?.accounts?.oauth2)throw new Error("GIS_NOT_LOADED");
   if(!APP_CONFIG.oauthClientId)throw new Error("OAUTH_CLIENT_ID_MISSING");
   return new Promise((resolve,reject)=>{
+    let settled=false;
+    const timer=setTimeout(()=>fail(new Error("AUTH_TIMEOUT: OAuth callback 未在 60 秒內返回")),AUTH_TIMEOUT_MS);
+    const finish=callback=>value=>{if(settled)return;settled=true;clearTimeout(timer);callback(value)};
+    const succeed=finish(resolve);
+    const fail=finish(reject);
     let consentRequested=false;
-    const client=google.accounts.oauth2.initTokenClient({
-      client_id:APP_CONFIG.oauthClientId,
-      scope:APP_CONFIG.scopes,
-      callback:response=>{
-        if(!response.error){accessToken=response.access_token;resolve(response);return;}
-        if(!consentRequested&&(response.error==="consent_required"||response.error==="login_required")){
-          consentRequested=true;
-          client.requestAccessToken({prompt:"consent"});
-          return;
+    try{
+      const client=google.accounts.oauth2.initTokenClient({
+        client_id:APP_CONFIG.oauthClientId,
+        scope:APP_CONFIG.scopes,
+        callback:response=>{
+          if(settled)return;
+          if(!response.error){accessToken=response.access_token;succeed(response);return;}
+          if(!consentRequested&&(response.error==="consent_required"||response.error==="login_required")){
+            consentRequested=true;
+            try{client.requestAccessToken({prompt:"consent"})}catch(error){fail(new Error(`AUTH_REQUEST_FAILED: ${error.message}`))}
+            return;
+          }
+          const detail=response.error_description?` (${response.error_description})`:"";
+          fail(new Error(`AUTH_DENIED: ${response.error}${detail}`));
         }
-        reject(new Error(`AUTH_DENIED: ${response.error}`));
-      }
-    });
-    client.requestAccessToken({prompt:"none"});
+      });
+      client.requestAccessToken({prompt:"none"});
+    }catch(error){fail(new Error(`AUTH_REQUEST_FAILED: ${error.message}`))}
   });
 }
 
@@ -88,21 +111,21 @@ async function files(search,fields="files(id,name,mimeType,parents,appProperties
   return api(`${DRIVE}/files?q=${encodeURIComponent(search)}&spaces=drive&includeItemsFromAllDrives=false&supportsAllDrives=false&fields=${encodeURIComponent(fields)}`);
 }
 async function readFile(fileId){
-  const response=await fetch(`${DRIVE}/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${accessToken}`}});
+  const response=await fetchWithTimeout(`${DRIVE}/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${accessToken}`}});
   if(!response.ok)throw new Error(`GOOGLE_API_${response.status}`);
   const text=await response.text();
   if(!text.trim())return null;
   try{return JSON.parse(text)}catch(error){throw new Error(`CONFIG_INVALID_JSON: ${error.message}`)}
 }
 async function writeFile(fileId,content,mimeType="application/json"){
-  const response=await fetch(`${DRIVE}/files/${fileId}?uploadType=media&fields=id,name,mimeType,parents,appProperties`,{method:"PATCH",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":mimeType},body:content});
+  const response=await fetchWithTimeout(`${DRIVE}/files/${fileId}?uploadType=media&fields=id,name,mimeType,parents,appProperties`,{method:"PATCH",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":mimeType},body:content});
   if(!response.ok){const body=await response.text();throw new Error(`GOOGLE_API_${response.status}: ${body.slice(0,240)}`)}
   return response.json();
 }
 async function createFile(metadata,media){
   if(media===undefined)return api(`${DRIVE}/files?fields=id,name,mimeType,parents,appProperties`,{method:"POST",body:JSON.stringify(metadata)});
   const file=await api(`${DRIVE}/files?fields=id,name,mimeType,parents,appProperties`,{method:"POST",body:JSON.stringify(metadata)});
-  const response=await fetch(`${DRIVE}/files/${file.id}?uploadType=media&fields=id,name,mimeType,parents,appProperties`,{method:"PATCH",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":metadata.mimeType},body:media});
+  const response=await fetchWithTimeout(`${DRIVE}/files/${file.id}?uploadType=media&fields=id,name,mimeType,parents,appProperties`,{method:"PATCH",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":metadata.mimeType},body:media});
   if(!response.ok){const body=await response.text();let detail=body;try{detail=JSON.parse(body).error?.message||body}catch{}throw new Error(`GOOGLE_API_${response.status}: ${detail.slice(0,240)}`)}
   return response.json();
 }
@@ -138,25 +161,25 @@ async function ensureLocations(spreadsheetId){
   if(!existing.values?.length)await api(`${SHEETS}/spreadsheets/${spreadsheetId}/values/${encodeURIComponent("Locations!A1:I1")}?valueInputOption=RAW`,{method:"PUT",body:JSON.stringify({range:"Locations!A1:I1",majorDimension:"ROWS",values:[LOCATION_HEADERS]})});
 }
 
-export async function initializeProject({repairMissingDatabase=false}={}){
-  const folder=await step("第1步：尋找或建立 Drive 專案資料夾",findOrCreateFolder);
-  const configs=await step("第2步：尋找設定檔",()=>findConfig(folder.id));
+export async function initializeProject({repairMissingDatabase=false,onProgress}={}){
+  const folder=await step("第1步：尋找或建立 Drive 專案資料夾",findOrCreateFolder,onProgress);
+  const configs=await step("第2步：尋找設定檔",()=>findConfig(folder.id),onProgress);
   let configFromDrive=null;
   if(configs.length>1)throw new Error("CONFIG_CONFLICT");
-  if(configs[0])configFromDrive=await step("第3步：讀取設定 JSON",()=>readFile(configs[0].id));
-  const databases=await step("第4步：尋找既有 Google Sheets",()=>findDatabase(folder.id));
+  if(configs[0])configFromDrive=await step("第3步：讀取設定 JSON",()=>readFile(configs[0].id),onProgress);
+  const databases=await step("第4步：尋找既有 Google Sheets",()=>findDatabase(folder.id),onProgress);
   if(databases.length>1)throw new Error("DATABASE_CONFLICT");
   const referencedDatabaseMissing=Boolean(configFromDrive?.spreadsheetId&&!databases.some(x=>x.id===configFromDrive.spreadsheetId));
   if(referencedDatabaseMissing&&!repairMissingDatabase)throw new Error("DATABASE_MISSING_REPAIR_REQUIRED");
   if(referencedDatabaseMissing&&repairMissingDatabase&&databases.length)throw new Error("DATABASE_REFERENCE_CONFLICT");
-  const database=databases[0]||await step("第5步：建立 Google Sheets",()=>createDatabase(folder.id));
+  const database=databases[0]||await step("第5步：建立 Google Sheets",()=>createDatabase(folder.id),onProgress);
   databaseId=database.id;
-  await step("第6步：建立或確認 Locations 工作表與標題列",()=>ensureLocations(database.id));
+  await step("第6步：建立或確認 Locations 工作表與標題列",()=>ensureLocations(database.id),onProgress);
   const now=new Date().toISOString();
   const config={...(configFromDrive||{}),application:"personal-map",projectName:APP_CONFIG.projectName,schemaVersion:1,folderId:folder.id,spreadsheetId:database.id,createdAt:configFromDrive?.createdAt||now,updatedAt:now};
   const body=JSON.stringify(config,null,2);
-  if(configs[0]&&!configFromDrive)await step("第7步：修復空白設定 JSON",()=>writeFile(configs[0].id,body));
-  else if(configs[0]&&referencedDatabaseMissing)await step("第7步：更新修復後設定 JSON",()=>writeFile(configs[0].id,body));
-  else if(!configs.length)await step("第7步：建立設定 JSON",()=>createFile({name:APP_CONFIG.configFileName,mimeType:"application/json",parents:[folder.id],appProperties:CONFIG_PROPS},body));
+  if(configs[0]&&!configFromDrive)await step("第7步：修復空白設定 JSON",()=>writeFile(configs[0].id,body),onProgress);
+  else if(configs[0]&&referencedDatabaseMissing)await step("第7步：更新修復後設定 JSON",()=>writeFile(configs[0].id,body),onProgress);
+  else if(!configs.length)await step("第7步：建立設定 JSON",()=>createFile({name:APP_CONFIG.configFileName,mimeType:"application/json",parents:[folder.id],appProperties:CONFIG_PROPS},body),onProgress);
   return {folder,database,config};
 }
