@@ -1,19 +1,26 @@
-# 個人地圖管理工具｜G01-R00
+# 個人地圖管理工具｜G01-R20
 
 本版本使用 Leaflet + OpenStreetMap，並加入 Google Identity Services Token Model、Google Drive API 與 Google Sheets API 的正式初始化層。流程會以 `appProperties` 尋找或建立可見的專案資料夾、設定 JSON、primary database 與 `Locations` header；不使用 GAS 或 `appDataFolder`。
+
+G01-R20 完成地點資料的讀取、寫入、編輯、實際列刪除、地址定位、地圖標記拖曳同步、搜尋、Fit All、重新連線，以及缺少資料庫時的明確 Recovery 操作。既有版本資料夾與 Git 歷史保留不覆寫。
 
 ## 本機預覽
 
 以任意靜態伺服器開啟此資料夾，例如 `npx serve .`。直接以 `file://` 開啟會受 ES Module 與地圖資源限制。
 
-## 待平台設定
+## 平台設定
 
-`index.html` 的 `window.__PERSONAL_MAP_CONFIG__.oauthClientId` 仍為空值。正式版需在 Google Cloud 建立 OAuth Web Client、啟用 Drive API/Sheets API，並設定 GitHub Pages origin；本程式不保存 Token。
+正式版需在 Google Cloud 啟用 Drive API／Sheets API，建立 Web application OAuth Client ID，並將 `https://lenovomi0403.github.io` 加入 Authorized JavaScript origins；本程式只在記憶體中使用目前 Token，不寫入 Token、Refresh Token 或 Secret。
 
 ## 測試
 
-`npm test` 執行 JavaScript 語法檢查。Google Drive/Sheets 初始化與 OAuth 需在具備 OAuth Client ID、Google 登入及正式部署網址後進行真人流程驗證。
+`npm test` 執行 `src/app.js` 與 `src/config.js` 語法檢查；部署前另執行 `src/google-api.js` 與 `src/recovery-ui.js` 語法檢查，以及 `git diff --check`。Google Drive／Sheets 初始化與 OAuth 仍需在正式網址以已登入帳戶進行真人流程驗證。
+
 ## 此版本的調整說明
+
+G01-R20 修正 Google Sheets 刪除流程為 `batchUpdate/deleteDimension`，避免只清空儲存格造成空白資料列在重新整理後殘留；保存 `Locations` 工作表的 `sheetId` 以支援實際列刪除。新增標記拖曳後同步、手機地點清單開關、表單座標完整性驗證，以及設定檔指向遺失資料庫時的明確 Recovery 選項。
+
+## 歷史調整說明
 
 G01-R03 修正 Google Sheets 建立流程：改由 Sheets API 建立試算表，再透過 Drive API 移入「個人地圖管理工具」資料夾並寫入 appProperties，避免以 Drive multipart 直接建立 Google Sheets 造成 `GOOGLE_API_400`。
 ## 此版本的調整說明
