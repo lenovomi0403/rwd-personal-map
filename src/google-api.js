@@ -16,8 +16,9 @@ export async function authorize(){if(!window.google?.accounts?.oauth2)throw new 
 async function files(search,fields="files(id,name,mimeType,parents,appProperties,createdTime,modifiedTime)"){return api(`${DRIVE}/files?q=${encodeURIComponent(search)}&spaces=drive&includeItemsFromAllDrives=false&supportsAllDrives=false&fields=${encodeURIComponent(fields)}`)}
 async function createFile(metadata,media){
   if(media===undefined)return api(`${DRIVE}/files?fields=id,name,mimeType,parents,appProperties`,{method:"POST",body:JSON.stringify(metadata)});
-  const form=new FormData();form.append("metadata",new Blob([JSON.stringify(metadata)],{type:"application/json"}));form.append("file",new Blob([media],{type:metadata.mimeType}));
-  const response=await fetch(`${DRIVE}/files?uploadType=multipart&fields=id,name,mimeType,parents,appProperties`,{method:"POST",headers:{Authorization:`Bearer ${accessToken}`},body:form});if(!response.ok){const body=await response.text();let detail=body;try{detail=JSON.parse(body).error?.message||body}catch{}throw new Error(`GOOGLE_API_${response.status}: ${detail.slice(0,240)}`)}return response.json()
+  const file=await api(`${DRIVE}/files?fields=id,name,mimeType,parents,appProperties`,{method:"POST",body:JSON.stringify(metadata)});
+  const response=await fetch(`${DRIVE}/files/${file.id}?uploadType=media&fields=id,name,mimeType,parents,appProperties`,{method:"PATCH",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":metadata.mimeType},body:media});
+  if(!response.ok){const body=await response.text();let detail=body;try{detail=JSON.parse(body).error?.message||body}catch{}throw new Error(`GOOGLE_API_${response.status}: ${detail.slice(0,240)}`)}return response.json()
 }
 function tagged(files,role){return files.filter(file=>file.appProperties?.application==="personal-map"&&file.appProperties?.resourceRole===role)}
 async function findOrCreateFolder(){const found=tagged((await files(query(APP_CONFIG.folderName,"application/vnd.google-apps.folder"))).files,"project-root");if(found.length>1)throw new Error("FOLDER_CONFLICT");if(found[0])return found[0];return createFile({name:APP_CONFIG.folderName,mimeType:"application/vnd.google-apps.folder",parents:["root"],appProperties:FOLDER_PROPS})}
