@@ -7,7 +7,7 @@ const CONFIG_PROPS={application:"personal-map",projectName:"個人地圖管理�
 const DB_PROPS={application:"personal-map",projectName:"個人地圖管理工具",resourceRole:"primary-database",schemaVersion:"1"};
 let accessToken="";
 const headers=()=>({Authorization:`Bearer ${accessToken}`,"Content-Type":"application/json"});
-async function api(url,options={}){const response=await fetch(url,{...options,headers:{...headers(),...(options.headers||{})}});if(response.status===401)throw new Error("AUTH_EXPIRED");if(!response.ok)throw new Error(`GOOGLE_API_${response.status}`);return response.status===204?null:response.json()}
+async function api(url,options={}){const response=await fetch(url,{...options,headers:{...headers(),...(options.headers||{})}});if(response.status===401)throw new Error("AUTH_EXPIRED");if(!response.ok){const body=await response.text();let detail=body;try{const parsed=JSON.parse(body);detail=parsed.error?.message||body}catch{}throw new Error(`GOOGLE_API_${response.status}: ${detail.slice(0,240)}`)}return response.status===204?null:response.json()}
 function q(value){return `'${String(value).replaceAll("'","\\'")}'`}
 function query(name,mime,property){return `name = ${q(name)} and mimeType = ${q(mime)} and trashed = false and appProperties has { key = 'application' and value = 'personal-map' } and appProperties has { key = 'resourceRole' and value = ${q(property)} }`}
 export function hasToken(){return Boolean(accessToken)}
@@ -16,7 +16,7 @@ async function files(search,fields="files(id,name,mimeType,parents,appProperties
 async function createFile(metadata,media){
   if(media===undefined)return api(`${DRIVE}/files?fields=id,name,mimeType,parents,appProperties`,{method:"POST",body:JSON.stringify(metadata)});
   const form=new FormData();form.append("metadata",new Blob([JSON.stringify(metadata)],{type:"application/json"}));form.append("file",new Blob([media],{type:metadata.mimeType}));
-  const response=await fetch(`${DRIVE}/files?uploadType=multipart&fields=id,name,mimeType,parents,appProperties`,{method:"POST",headers:{Authorization:`Bearer ${accessToken}`},body:form});if(!response.ok)throw new Error(`GOOGLE_API_${response.status}`);return response.json()
+  const response=await fetch(`${DRIVE}/files?uploadType=multipart&fields=id,name,mimeType,parents,appProperties`,{method:"POST",headers:{Authorization:`Bearer ${accessToken}`},body:form});if(!response.ok){const body=await response.text();let detail=body;try{detail=JSON.parse(body).error?.message||body}catch{}throw new Error(`GOOGLE_API_${response.status}: ${detail.slice(0,240)}`)}return response.json()
 }
 async function findOrCreateFolder(){const found=await files(query(APP_CONFIG.folderName,"application/vnd.google-apps.folder","project-root"));if(found.files.length>1)throw new Error("FOLDER_CONFLICT");if(found.files[0])return found.files[0];return createFile({name:APP_CONFIG.folderName,mimeType:"application/vnd.google-apps.folder",parents:["root"],appProperties:FOLDER_PROPS})}
 async function findDatabase(folderId){const found=await files(query(APP_CONFIG.spreadsheetName,"application/vnd.google-apps.spreadsheet","primary-database"));return found.files.filter(file=>file.parents?.includes(folderId))}

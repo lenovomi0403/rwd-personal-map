@@ -19,3 +19,6 @@ G01-R03 修正 Google Sheets 建立流程：改由 Sheets API 建立試算表，
 ## 此版本的調整說明
 
 G01-R04 修正 Drive metadata-only 建立流程：資料夾與其他純 metadata 檔案改用 Drive API JSON POST；只有設定 JSON 使用 multipart upload，避免純 metadata multipart 請求造成 `GOOGLE_API_400`。
+## 此版本的調整說明
+
+G01-R06 將 Google API 錯誤處理改為顯示 HTTP 狀態、Google 回應訊息與可辨識的失敗內容，避免只顯示籠統的 `GOOGLE_API_400`。
