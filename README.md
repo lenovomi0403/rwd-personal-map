@@ -2,7 +2,7 @@
 
 本版本使用 Leaflet + OpenStreetMap，並加入 Google Identity Services Token Model、Google Drive API 與 Google Sheets API 的正式初始化層。流程會以 `appProperties` 尋找或建立可見的專案資料夾、設定 JSON、primary database 與 `Locations` header；不使用 GAS 或 `appDataFolder`。
 
-G01-R27 延續 G01-R26 的 Drive／Sheets 初始化、完整 CRUD、地址定位、標記拖曳同步、搜尋、Fit All、Recovery 與小尺寸地圖高度修正；新增真正可執行的「搜尋地點」按鈕、輸入即時候選結果、候選地點的地圖資訊面板、面板新增／編輯／刪除操作、地址或 `緯度,經度` 任一方式新增，以及手機版地點清單與快速新增入口。OAuth access token 僅以目前瀏覽器分頁的 `sessionStorage` 保存短期工作階段，重新整理後會自動恢復並重新載入資料；不保存 Refresh Token 或 Client Secret。同步把 HTML、ES Module import 與 CSS 的版本查詢字串升級至 G01-R27，避免新版修正被舊版快取遮蔽。候選地點使用 OpenStreetMap Nominatim 公開搜尋服務，不宣稱為 Google Places。既有版本資料夾與 Git 歷史保留不覆寫。
+G01-R27 延續 G01-R26 的 Drive／Sheets 初始化、完整 CRUD、地址定位、標記拖曳同步、搜尋、Fit All、Recovery 與小尺寸地圖高度修正；新增真正可執行的「搜尋地點」按鈕、輸入即時候選結果、候選地點的地圖資訊面板、面板新增／編輯／刪除操作、地址或 `緯度,經度` 任一方式新增，以及手機版地點清單與快速新增入口。地址／候選搜尋優先使用 OpenStreetMap Nominatim；Nominatim 沒有結果時自動改用 ArcGIS World Geocoding 公開服務，讓臺灣中文門牌仍可定位，不宣稱為 Google Places。OAuth access token 僅以目前瀏覽器分頁的 `sessionStorage` 保存短期工作階段，重新整理後會自動恢復並重新載入資料；不保存 Refresh Token 或 Client Secret。同步把 HTML、ES Module import 與 CSS 的版本查詢字串升級至 G01-R27，避免新版修正被舊版快取遮蔽。既有版本資料夾與 Git 歷史保留不覆寫。
 
 ## 本機預覽
 
@@ -18,7 +18,7 @@ G01-R27 延續 G01-R26 的 Drive／Sheets 初始化、完整 CRUD、地址定位
 
 ## 此版本的調整說明
 
-G01-R27 新增搜尋按鈕與 Nominatim 即時候選、右側地點資訊面板、候選結果新增與已儲存地點刪除、地址-only geocoding、無空格 `緯度,經度` 顯示、手機版 sidebar／快速新增入口與可滾動表單；同時採用語意化 cool-neutral／warm-neutral token、清楚的主要／次要／危險操作、focus 狀態與 reduced-motion 支援。保存 G01-R26 的資料與舊版檔案不覆寫。
+G01-R27 新增搜尋按鈕與 Nominatim／ArcGIS fallback 即時候選、右側地點資訊面板、候選結果新增與已儲存地點刪除、地址-only geocoding、無空格 `緯度,經度` 顯示、手機版 sidebar／快速新增入口與可滾動表單；同時採用語意化 cool-neutral／warm-neutral token、清楚的主要／次要／危險操作、focus 狀態與 reduced-motion 支援。保存 G01-R26 的資料與舊版檔案不覆寫。
 
 ## 歷史調整說明
 

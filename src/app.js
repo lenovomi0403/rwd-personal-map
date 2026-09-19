@@ -166,17 +166,43 @@ async function searchNominatim(query,limit=5,signal){
   return response.json();
 }
 
+async function searchArcGIS(query,limit=5,signal){
+  const url=`https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?SingleLine=${encodeURIComponent(query)}&f=json&maxLocations=${limit}&outFields=*`;
+  const response=await fetch(url,{headers:{Accept:"application/json"},signal});
+  if(!response.ok)throw new Error(`備援定位服務回應 ${response.status}`);
+  const payload=await response.json();
+  return (payload.candidates||[]).filter(candidate=>candidate.location).map((candidate,index)=>({
+    place_id:`arcgis-${candidate.attributes?.MatchID||index}-${candidate.location.y}-${candidate.location.x}`,
+    name:candidate.attributes?.ShortLabel||candidate.address||"未命名地點",
+    display_name:candidate.address||candidate.attributes?.LongLabel||"",
+    lat:String(candidate.location.y),
+    lon:String(candidate.location.x),
+    type:candidate.attributes?.Addr_type||"address",
+    source:"ArcGIS"
+  }));
+}
+
 async function geocode(address){
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),15000);
+  const timer=setTimeout(()=>controller.abort(),10000);
+  let nominatimError=null;
   try{
     const rows=await searchNominatim(address,1,controller.signal);
-    if(!rows.length)throw new Error("無法定位此地址，請確認地址或直接輸入座標");
-    return {latitude:Number(rows[0].lat),longitude:Number(rows[0].lon)};
+    if(rows.length)return {latitude:Number(rows[0].lat),longitude:Number(rows[0].lon)};
+  }catch(error){
+    if(error.name!=="AbortError")nominatimError=error;
+  }finally{clearTimeout(timer)}
+  const fallbackController=new AbortController();
+  const fallbackTimer=setTimeout(()=>fallbackController.abort(),10000);
+  try{
+    const rows=await searchArcGIS(address,1,fallbackController.signal);
+    if(rows.length)return {latitude:Number(rows[0].lat),longitude:Number(rows[0].lon)};
   }catch(error){
     if(error.name==="AbortError")throw new Error("地址定位逾時");
-    throw error;
-  }finally{clearTimeout(timer)}
+    throw new Error(`地址定位失敗：${error.message}`);
+  }finally{clearTimeout(fallbackTimer)}
+  if(nominatimError)throw new Error(`地址定位失敗：${nominatimError.message}`);
+  throw new Error("無法定位此地址，請確認地址或直接輸入座標");
 }
 
 async function searchPlaces(query){
@@ -186,7 +212,8 @@ async function searchPlaces(query){
   searchController=new AbortController();
   renderSearchResults([],"搜尋中…");
   try{
-    const rows=await searchNominatim(trimmed,5,searchController.signal);
+    let rows=await searchNominatim(trimmed,5,searchController.signal);
+    if(!rows.length)rows=await searchArcGIS(trimmed,5,searchController.signal);
     searchResults=rows;
     latestSearchQuery=trimmed;
     renderSearchResults(rows,rows.length?"":"找不到候選地點");
