@@ -1,4 +1,4 @@
-import {APP_CONFIG} from "./config.js?v=G01-R26";
+import {APP_CONFIG} from "./config.js?v=G01-R27";
 
 const DRIVE="https://www.googleapis.com/drive/v3";
 const SHEETS="https://sheets.googleapis.com/v4";
@@ -9,6 +9,8 @@ const LOCATION_HEADERS=["id","name","address","latitude","longitude","descriptio
 const REQUEST_TIMEOUT_MS=20000;
 const AUTH_TIMEOUT_MS=60000;
 const RETRYABLE_STATUS=new Set([429,500,502,503,504]);
+const TOKEN_STORAGE_KEY="personal-map.oauth.session.v1";
+const TOKEN_EXPIRY_BUFFER_MS=30000;
 const delay=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 let accessToken="";
 let databaseId="";
@@ -40,7 +42,7 @@ async function api(url,options={}){
     await response.text();
     await delay(400*(attempt+1));
   }
-  if(response.status===401)throw new Error("AUTH_EXPIRED");
+  if(response.status===401){clearToken();throw new Error("AUTH_EXPIRED")}
   if(!response.ok){
     const body=await response.text();
     let detail=body;
@@ -56,6 +58,26 @@ function q(value){return `'${String(value).replaceAll("'","\\'")}'`}
 function query(name,mime){return `name=${q(name)} and mimeType=${q(mime)} and trashed=false`}
 function tagged(fileList,role){return fileList.filter(file=>file.appProperties?.application==="personal-map"&&file.appProperties?.resourceRole===role)}
 export function hasToken(){return Boolean(accessToken)}
+export function clearToken(){
+  accessToken="";
+  try{sessionStorage.removeItem(TOKEN_STORAGE_KEY)}catch{}
+}
+function persistToken(response){
+  accessToken=response.access_token||"";
+  if(!accessToken)return;
+  try{
+    const expiresIn=Number(response.expires_in)||3600;
+    sessionStorage.setItem(TOKEN_STORAGE_KEY,JSON.stringify({accessToken,expiresAt:Date.now()+expiresIn*1000}));
+  }catch{}
+}
+function restoreToken(){
+  try{
+    const saved=JSON.parse(sessionStorage.getItem(TOKEN_STORAGE_KEY)||"null");
+    if(saved?.accessToken&&Number(saved.expiresAt)>Date.now()+TOKEN_EXPIRY_BUFFER_MS){accessToken=saved.accessToken;return}
+    sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+  }catch{try{sessionStorage.removeItem(TOKEN_STORAGE_KEY)}catch{}}
+}
+restoreToken();
 
 function parseLocation(row){
   return {
@@ -107,7 +129,7 @@ export async function authorize(){
         scope:APP_CONFIG.scopes,
         callback:response=>{
           if(settled)return;
-          if(!response.error){accessToken=response.access_token;succeed(response);return;}
+          if(!response.error){persistToken(response);succeed(response);return;}
           const detail=response.error_description?` (${response.error_description})`:"";
           fail(new Error(`AUTH_DENIED: ${response.error}${detail}`));
         }
@@ -122,6 +144,7 @@ async function files(search,fields="files(id,name,mimeType,parents,appProperties
 }
 async function readFile(fileId){
   const response=await fetchWithTimeout(`${DRIVE}/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${accessToken}`}});
+  if(response.status===401){clearToken();throw new Error("AUTH_EXPIRED")}
   if(!response.ok)throw new Error(`GOOGLE_API_${response.status}`);
   const text=await response.text();
   if(!text.trim())return null;
@@ -129,6 +152,7 @@ async function readFile(fileId){
 }
 async function writeFile(fileId,content,mimeType="application/json"){
   const response=await fetchWithTimeout(`${DRIVE}/files/${fileId}?uploadType=media&fields=id,name,mimeType,parents,appProperties`,{method:"PATCH",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":mimeType},body:content});
+  if(response.status===401){clearToken();throw new Error("AUTH_EXPIRED")}
   if(!response.ok){const body=await response.text();throw new Error(`GOOGLE_API_${response.status}: ${body.slice(0,240)}`)}
   return response.json();
 }
@@ -136,6 +160,7 @@ async function createFile(metadata,media){
   if(media===undefined)return api(`${DRIVE}/files?fields=id,name,mimeType,parents,appProperties`,{method:"POST",body:JSON.stringify(metadata)});
   const file=await api(`${DRIVE}/files?fields=id,name,mimeType,parents,appProperties`,{method:"POST",body:JSON.stringify(metadata)});
   const response=await fetchWithTimeout(`${DRIVE}/files/${file.id}?uploadType=media&fields=id,name,mimeType,parents,appProperties`,{method:"PATCH",headers:{Authorization:`Bearer ${accessToken}`,"Content-Type":metadata.mimeType},body:media});
+  if(response.status===401){clearToken();throw new Error("AUTH_EXPIRED")}
   if(!response.ok){const body=await response.text();let detail=body;try{detail=JSON.parse(body).error?.message||body}catch{}throw new Error(`GOOGLE_API_${response.status}: ${detail.slice(0,240)}`)}
   return response.json();
 }

@@ -3,5 +3,5 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {"test": "node --check src/app.js && node --check src/config.js"}
+  "scripts": {"test": "node --check src/app.js && node --check src/config.js && node --check src/google-api.js && node --check src/recovery-ui.js"}
 }
